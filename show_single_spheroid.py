@@ -4,7 +4,7 @@ Created on Sun Jan 10 16:56:23 2021
 
 @author: mzly903
 
-View single speroid
+View a single speroid
 
 """
 
