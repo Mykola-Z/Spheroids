@@ -1,2 +1,0 @@
-"Spheroids" 
-"# Spheroids" 
