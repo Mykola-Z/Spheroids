@@ -17,7 +17,7 @@ spheroid = r'\a1_008.txt'
 
 spectra = np.loadtxt(path+spheroid)
 
-ascan_number = 112
+ascan_number = 124
 
 fft = np.fft.fft(spectra[ascan_number])
     
