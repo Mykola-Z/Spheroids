@@ -10,10 +10,13 @@ View a single speroid
 
 import numpy as np
 from matplotlib import pyplot as plt
+import pandas as pd
 
-path = r'C:\Users\mzly903\Desktop\PhD\2. Data\1. Spheroids\Experiment 4 21 Jan 2017\21JanMeasurements'
+path = r'C:\Users\mzly903\Downloads'
 
-spheroid = r'\a1_008.txt'
+spheroid = r'\8p9_0p156_Ch11-12_80000_win199-002.mat'
+
+data = pd.read_csv(path+spheroid)
 
 spectra = np.loadtxt(path+spheroid)
 

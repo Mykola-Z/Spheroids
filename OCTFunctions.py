@@ -5,7 +5,6 @@ Created on Sat Nov 23 14:38:10 2019
 @author: mzly903
 """
 import glob
-import threading
 import scipy.constants
 import cv2
 import numpy as np
@@ -13,144 +12,66 @@ from matplotlib import pyplot as plt
 from scipy.interpolate import interp1d
 from tkinter import Tk
 from tkinter.filedialog import askopenfilename
-from tkinter import filedialog
 import peakutils
 import scipy
 from scipy.ndimage import gaussian_filter
-import mahotas as mh
-from IPython.html.widgets import interact, fixed
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
 from mpl_toolkits.axes_grid1.inset_locator import mark_inset
-from contextlib import suppress
 
-
-filepath2 = r'C:\Users\mzly903\Desktop\PhD\2. Data\BK7\1704\magda'
-
-
-filepath3 = r'C:\Users\mzly903\Desktop\PhD\2. Data\BK7\1704\magda'
-filename_lin_phase = 'lin_st54_len1888'
-filename_nonlin_phase = 'nonlin_st54_len1888'
-filename_disp = 'disp_st0_len1888'
-filename_lin_phase_m = 'lin_st54_len1888'
-filename_nonlin_phase_m = 'nonlin_st54_len1888'
-
-cut_point = 105 # Cut point for lin and disp files 
-
-#File uploading 
-phase_lin = np.loadtxt(filepath2 + '\\' + filename_lin_phase + '.txt')
-phase_nonlin = np.loadtxt(filepath2 + '\\' + filename_nonlin_phase + '.txt')
-dispCompVect = np.loadtxt(filepath2 + '\\' + filename_disp + '.txt')
-phase_lin_matlab = np.loadtxt(filepath2 + '\\' + filename_lin_phase_m + '.txt')
-phase_nonlin_matlab = np.loadtxt(filepath2 + '\\' + filename_nonlin_phase_m + '.txt')
-
-pretty_data = []
-sigma = 4
-p=15
-number_ascans = 190
+p = 12
 Zero = 2**p # 2**11=2048 no zero padding
-cut_DC =  (2**(p-10))*21
-def click():
+
+def click():  # Dialog window appears to select file
     root = Tk()
-    
-    root.withdraw() 
+    root.withdraw()
     print ('choose file:')
-    name = askopenfilename() 
+    name = askopenfilename()
     print(name + ' is selected')
     spectrum = np.loadtxt(name)
-    return spectrum, name
+    return spectrum, name 
 
-def calibrate(oct_data, disp = True):   # If you want to calibrate 
-           
-    if isinstance(oct_data[0], (np.ndarray)):
-        
-        spectrum_lin_disp = []
-        
-        if disp == True:
-            
-            for i in range (len(oct_data)):
-                
-                trim_oct_data = oct_data [i, cut_point:cut_point+len(dispCompVect)]
-                f = interp1d(phase_nonlin, trim_oct_data, fill_value='extrapolate')
-                spectrum_lin = f(phase_lin)
-                spectrum_lin_disp_i =spectrum_lin *np.exp(-1j*dispCompVect)
-                spectrum_lin_disp.append(spectrum_lin_disp_i)
-                
-        elif disp == False:
-            
-            for i in range (len(oct_data)):
-                trim_oct_data = oct_data [i, cut_point:cut_point+len(dispCompVect)]
-                f = interp1d(phase_nonlin, trim_oct_data, fill_value='extrapolate')
-                spectrum_lin_disp_i = f(phase_lin)
-                spectrum_lin_disp.append(spectrum_lin_disp_i)
- 
-            
-    elif isinstance(oct_data[0], (float, int)):
-        
-        trim_oct_data = oct_data [cut_point:cut_point+len(phase_lin)]
-        
-        if disp == True:
-            
-            f = interp1d(phase_nonlin, trim_oct_data, fill_value='extrapolate')
-            spectrum_lin = f(phase_lin)
-            spectrum_lin_disp =spectrum_lin *np.exp(-1j*dispCompVect)
-            
-        elif disp == False:
-            
-            f = interp1d(phase_nonlin, trim_oct_data, fill_value='extrapolate')
-            spectrum_lin_disp = f(phase_lin)
-        
-    return spectrum_lin_disp
+def click_path():  # Dialog window appears to select file
+    root = Tk()
+    root.withdraw()
+    print ('choose file:')
+    name = askopenfilename()
+    print(name + ' is selected')
 
+    return name 
 
-def calibrate2(origin, disp = False):
-    if disp == False:
-        spectrum_data = origin 
-
-        f = interp1d(phase_nonlin_matlab, spectrum_data, fill_value='extrapolate')
-        
-        spectrum_lin_disp = f(phase_lin_matlab)
-        
-    else:
-        spectrum_data = origin [105:105+len(phase_lin)]
-        f = interp1d(phase_nonlin, spectrum_data, fill_value='extrapolate')
-        spectrum_lin = f(phase_lin)
-        spectrum_lin_disp =spectrum_lin *np.exp(-1j*dispCompVect)
-    return spectrum_lin_disp
-
-
-def ascan(enter_data, p = 15):
+def ascan(enter_data, p = 15):  # Create Ascan
     absFFT = np.abs(np.fft.fft(enter_data, n = 2**p))
     return absFFT
 
 
-def fourrier (data, first_ascan = 0, last_ascan = number_ascans):
-    
+def fourrier(data, zeropad = Zero, first_ascan = 0, last_ascan = 'default'):
+
+    if last_ascan == 'default':
+        last_ascan = len(data)
+
     if isinstance(data[0], (np.ndarray)) or isinstance(data[0], list):
         data_bscan = []
-        
         for i in range (first_ascan, last_ascan):
-            absFFT = np.fft.fft(data [i], n=Zero)
+            absFFT = np.fft.fft(data [i], n=zeropad)
             data_bscan.append(absFFT)
-            
         result = np.rot90(data_bscan,1)
-        
+
     else:
-        
-        result = np.fft.fft(data, n = Zero)
+        result = np.fft.fft(data, n = zeropad)
 
     return result
-        
- 
-def bscan(y, first_ascan = 0, last_ascan = number_ascans, zepopadding = 12, go = 0):
 
-    data_bscan = []
+def bscan(y, first_ascan = 0, last_ascan = 'default', zepopadding = Zero, go = 0):
     
+    if last_ascan == 'default':
+        last_ascan = len(y)
+    data_bscan = []
     
     for g in range (first_ascan, last_ascan):
         spectrum = y [g]
         absFFT = np.abs(np.fft.fft(spectrum, n=2**zepopadding))
         if go == 'gauss':
-            absFFT = gaussian_filter(np.abs(np.fft.fft(spectrum, n=Zero)),sigma = 18)
+            absFFT = gaussian_filter(np.abs(np.fft.fft(spectrum, n=zepopadding)),sigma = 18)
         #data_bscan.append(absFFT[int(len(absFFT)/1.25):len(absFFT)-cut_DC])
         data_bscan.append(absFFT)
         procent_old = round((g-1)*100/len(y))
@@ -162,105 +83,42 @@ def bscan(y, first_ascan = 0, last_ascan = number_ascans, zepopadding = 12, go =
                 print ('Almost there')
     return np.rot90(data_bscan,1)
 
-Low_wavelength_cut = 780
-High_wavelength_cut = 920
+def normalize(data, factor = 1):
+    return [(x/max(data))*factor for x in data]
 
-central_wavelength1 = 810
-central_wavelength2 = 890
-
-resolution =(2.5/(2**(p-11)))*10**(-6) # resolution in mm where 2.5 is a pix 
-
-
-def gaussian(mu, sigma=0.8, makeit2048 = False):
-    x = np.arange(Low_wavelength_cut, High_wavelength_cut, (High_wavelength_cut-Low_wavelength_cut)/len(dispCompVect))
-    
-    if makeit2048 == True: 
-        x = np.arange(Low_wavelength_cut, High_wavelength_cut, (High_wavelength_cut-Low_wavelength_cut)/2048)
+def gaussian(N = 4096, mu = 2048, sigma=15, low = 0, high = 'default'):
+    if high == 'default':
+        
+        high = N
+        
+    x = np.linspace(low, high, N)
     
     return 1/(sigma * np.sqrt(2 * np.pi))*np.exp( - (x - mu)**2 / (2 * sigma**2) )
 
-
-def dispersion(spectrum, ref_ind=1.508):
-    x = np.arange(-5, 5, 10/len(spectrum)) #gaussian range
-
-    mu1 = -5+(central_wavelength1-Low_wavelength_cut)*10/(High_wavelength_cut-Low_wavelength_cut)  # 
-    mu2 = -5+(central_wavelength2-Low_wavelength_cut)*10/((High_wavelength_cut-Low_wavelength_cut))  
+def walk_off(spectrum, gauss1, gauss2, zeropad = 'default', where_to_look = 'default'):
     
-    sigma = 0.8
+    sub_wave1 = spectrum*gauss1
+    sub_wave2 = spectrum*gauss2
     
-    gaussian1 = 1/(sigma * np.sqrt(2 * np.pi))*np.exp( - (x - mu1)**2 / (2 * sigma**2) )
-    gaussian2 = 1/(sigma * np.sqrt(2 * np.pi))*np.exp( - (x - mu2)**2 / (2 * sigma**2) )
-    ###### Algorithm starts
-    
-    
-    spectrum1 = gaussian1*spectrum
-    spectrum2 = gaussian2*spectrum
-    
-    absFFT1 = np.flip(np.abs(np.fft.fft(spectrum1, n=Zero)))
-    absFFT2 = np.flip(np.abs(np.fft.fft(spectrum2, n=Zero)))
-    
-
-    cut = int(len(absFFT1)/2)
-
-    index1 = peakutils.indexes(absFFT1[cut_DC:cut], thres=0.2, min_dist=2*(2**(p-10))) 
-    index2 = peakutils.indexes(absFFT2[cut_DC:cut], thres=0.2, min_dist=2*(2**(p-10))) 
-    
-    #print ('z1 is ' + str(index1) + '\n z2 is ' + str(index2))
-    c = scipy.constants.c # in m/s 
-
-    omega1 = 2*np.pi*c/(central_wavelength1)  # wavelength in nm  
-    omega2 = 2*np.pi*c/(central_wavelength2)  # wavelength in nm
-    l_s = np.abs(index1[0]-index1[-1])* resolution*ref_ind  # in mm
-    z_1 = (index1[-1])*resolution #in m
-    z_2 = (index2[-1])*resolution
-    walk_off = np.abs(z_2-z_1)*ref_ind
-    
-    beta_2 =(walk_off/(c*l_s*(omega1-omega2)))*10**(24)
-
-    return walk_off 
-walks= []
-def walk_off(spectrum, where_to_look = 0,  ref_ind=1.508 ):
-    x = np.arange(-5, 5, 10/len(spectrum)) #gaussian range
-
-    mu1 = -5+(central_wavelength1-Low_wavelength_cut)*10/(High_wavelength_cut-Low_wavelength_cut)  # 
-    mu2 = -5+(central_wavelength2-Low_wavelength_cut)*10/((High_wavelength_cut-Low_wavelength_cut))  
-    
-    sigma = 0.8
-    
-    gaussian1 = 1/(sigma * np.sqrt(2 * np.pi))*np.exp( - (x - mu1)**2 / (2 * sigma**2) )
-    gaussian2 = 1/(sigma * np.sqrt(2 * np.pi))*np.exp( - (x - mu2)**2 / (2 * sigma**2) )
-    ###### Algorithm starts
-    
-    
-    spectrum1 = gaussian1*spectrum
-    spectrum2 = gaussian2*spectrum
-    
-    absFFT1 = np.flip(np.abs(np.fft.fft(spectrum1, n=Zero)))
-    absFFT2 = np.flip(np.abs(np.fft.fft(spectrum2, n=Zero)))
-    
-    roi_from = int(where_to_look-0.02*len(absFFT1))
-    roi_to = int(where_to_look+0.02*len(absFFT1))
-    walk_off = 0
-    peak1= roi_from + np.argmax (absFFT1[roi_from:roi_to])
-
-    peak2 = roi_from +np.argmax (absFFT2[roi_from:roi_to])
-
-
-    if peak2 < peak1+200:
-        plt.figure()
-        plt.title('This Ascan has not been taken ' +' \n Select the peaks manually if you want to add')
-        plt.plot(absFFT1)
-        plt.plot(absFFT2)
+    if zeropad == 'default':
+        sub_ascan1 = abs(np.fft.fft(sub_wave1))
+        sub_ascan2 = abs(np.fft.fft(sub_wave2))
     else:
+        sub_ascan1 = abs(np.fft.fft(sub_wave1, n = zeropad))
+        sub_ascan2 = abs(np.fft.fft(sub_wave2, n = zeropad))
+    
+    if where_to_look == 'default':
+        peak1 = np.argmax(sub_ascan1[int(len(sub_ascan1)/100):int(len(sub_ascan1)/2)])
+        peak2 = np.argmax(sub_ascan2[int(len(sub_ascan1)/100):int(len(sub_ascan1)/2)])
+        walk = peak2 - peak1
+    
+    else:
+        peak1 = np.argmax(sub_ascan1[where_to_look[0]:where_to_look[1]])
+        peak2 = np.argmax(sub_ascan2[where_to_look[0]:where_to_look[1]])
+        walk = peak2 - peak1
 
-        plt.figure()
-        plt.title('Seems good' )
-        plt.plot(absFFT1)
-        plt.plot(absFFT2)
+    return walk
 
-        walk_off = peak2-peak1
-
-    return walk_off
 
 def dispersion_new(walk_off, distance, resolution =(2.5/(2**(p-11)))*10**(-6), ref_ind=1.508):
     c = scipy.constants.c # in m/s 
@@ -274,69 +132,7 @@ def dispersion_new(walk_off, distance, resolution =(2.5/(2**(p-11)))*10**(-6), r
     beta_2 =(walk_off/(c*l_s*(omega1-omega2)))
     return beta_2*10**(27)
     
-
-
-
-def dispersionplus(spectrum, ref_ind=1.508):
-    x = np.arange(-5, 5, 10/len(spectrum)) #gaussian range
-
-    mu1 = -5+(central_wavelength1-Low_wavelength_cut)*10/(High_wavelength_cut-Low_wavelength_cut)  # 
-    mu2 = -5+(central_wavelength2-Low_wavelength_cut)*10/((High_wavelength_cut-Low_wavelength_cut))  
-    
-    sigma = 0.8
-    
-    gaussian1 = 1/(sigma * np.sqrt(2 * np.pi))*np.exp( - (x - mu1)**2 / (2 * sigma**2) )
-    gaussian2 = 1/(sigma * np.sqrt(2 * np.pi))*np.exp( - (x - mu2)**2 / (2 * sigma**2) )
-    ###### Algorithm starts
-    
-    
-    spectrum1 = gaussian1*spectrum
-    spectrum2 = gaussian2*spectrum
-    
-
-    f1 = interp1d(phase_nonlin, spectrum1, fill_value='extrapolate')
-    f2 = interp1d(phase_nonlin, spectrum2, fill_value='extrapolate')
-
-    spectrum_lin1 = f1(phase_lin)
-    spectrum_lin2 = f2(phase_lin)
-
-# compensate dispersion
-
-    #spectrum_lin_disp1 =spectrum_lin1*np.exp(-1j*dispCompVect)
-    #spectrum_lin_disp2 =spectrum_lin2*np.exp(-1j*dispCompVect)    
-    
-    absFFT1 = np.flip(np.abs(np.fft.fft(spectrum_lin1, n=Zero)))
-    absFFT2 = np.flip(np.abs(np.fft.fft(spectrum_lin2, n=Zero)))
-    plt.figure()
-
-    plt.plot(spectrum, c = 'r', linewidth=0.5)    
-   
-    cut_DC =  (2**(p-10))*21
-    cut = int(len(absFFT1)/2)
-
-    index1 = peakutils.indexes(absFFT1[cut_DC:cut], thres=0.9, min_dist=2*(2**(p-10)))  
-    index2 = peakutils.indexes(absFFT2[cut_DC:cut], thres=0.9, min_dist=2*(2**(p-10))) 
-    
-    index_first = peakutils.indexes(absFFT1[cut_DC:int(cut-cut/2)], thres=0.9, min_dist=2*(2**(p-10))) 
-    index_last = peakutils.indexes(absFFT1[int(cut-cut/2):cut], thres=0.9, min_dist=2*(2**(p-10))) 
-
-    #print ('z1 is ' + str(index1) + '\n z2 is ' + str(index2))
-    c = scipy.constants.c # in m/s 
-
-    omega1 = 2*np.pi*c/(central_wavelength1)  # wavelength in nm  
-    omega2 = 2*np.pi*c/(central_wavelength2)  # wavelength in nm
-    l_s = (np.abs(index_first-index_last)*resolution)
-    print ('distance is ' + str(l_s))
-    #l_s = 975  # in mm
-    z_1 = (index1[-1])*resolution #in m
-    z_2 = (index2[-1])*resolution
-    walk_off = np.abs(z_2-z_1)*ref_ind
-    
-    beta_2 =(walk_off/(c*l_s*(omega1-omega2)))*10**(24)
-
-    return beta_2
-
-def showme (data, title='title is missing', full = True, contrast = 5000):
+def showme(data, title='title is missing', full = True, contrast = 5000):
     
     if isinstance(data[0], (np.ndarray)) or isinstance(data[0], list):
         plt.figure()
@@ -348,7 +144,6 @@ def showme (data, title='title is missing', full = True, contrast = 5000):
         plt.clim([0, contrast])
         plt.title(title)
         plt.axis('tight')
-    
 
     elif isinstance(data[0], (int, float)):
         plt.figure()
@@ -399,7 +194,6 @@ def showmegraphplus(ascan_data, title='title is missing', full = True):
         plt.plot(ascan_data, c = 'r', linewidth=0.5) 
     plt.axis('tight')
         
-
 
 def showmeimage(bscan_data,  title='title for B-scan is missing', full = True):
 
@@ -475,39 +269,8 @@ def first_peak (ascan, multi = 6):
     return i
             
 
-def bscan_fast(y, first_ascan = 0, last_ascan = number_ascans, go = 0):
-
-    data_bscan = []
-    cut_DC =  (2**(p-10))*21
-    
-    for g in range (first_ascan, last_ascan):
-        spectrum = y [g]
-        absFFT = np.abs(np.fft.fft(spectrum, n=Zero))
-        if go == 'gauss':
-            absFFT = gaussian_filter(np.abs(np.fft.fft(spectrum, n=Zero)),sigma = 18)
-        #data_bscan.append(absFFT[int(len(absFFT)/1.25):len(absFFT)-cut_DC])
-        data_bscan.append(absFFT)
-        procent_old = round((g-1)*100/len(y))
-        procent_new = round((g)*100/len(y))
-    
-        if procent_new > procent_old :
-            print ('Please wait ' + str(100 - procent_new) + '% left')
-            if procent_new == 94:
-                print ('Almost there')
-                
-    
-    return np.rot90(data_bscan,1) 
-   
 sigma = 8
     
-def walkoff (data, start_peak_range = 0, end_peak_range = 200):
-    for i in range (start_peak_range, end_peak_range): 
-        spectrum1 = gaussian(820, sigma)*calibrate[i]
-        spectrum2 = gaussian(880, sigma)*calibrate[i]
-        
-        absFFT = fourrier(calibrate[i])
-        absFFT1 = fourrier(spectrum1)
-        absFFT2 = fourrier(spectrum2)
    
 def omega(wave):
     
@@ -521,8 +284,7 @@ def omega(wave):
 
     
 def Kalman(data, start, end):
-    
-   
+ 
     new_set = []
     E_measured = 2
     Estimeted_value = data[0][start]
@@ -533,20 +295,17 @@ def Kalman(data, start, end):
         Estimeted_value = Estimeted_value + KG*(data[0][j]-Estimeted_value)
         Estimated_error = (1-KG)*(Estimated_error)
         new_set.append(Estimeted_value)
-    
-   
+ 
     return new_set
-    
-    
+
 def peak (row_data):
-    
+   
     point = np.argmax(row_data)
     
     return point
 
-
 def peak_threshold(row_data , threshold, start = 0,  end = 1048):
-    
+   
     h = start
     
     value = row_data [h]
@@ -629,7 +388,6 @@ def get_only_flat(refr, get_what):
         
         if flat_list[i] != 'a':
             new.append(float(flat_list[i]))    
-    
 
 def load_folder(path):    
     
@@ -650,7 +408,7 @@ def sum_of_components_after(data, i=0, length= len(data)):
     else:
         sum_of_next = data [i]
     return sum_of_next
- 
+
 def absorb_coef(data, resolution = 1, start = 0, end = len(data)):
     mu = []
     
