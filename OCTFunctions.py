@@ -9,10 +9,10 @@ import scipy.constants
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
-from scipy.interpolate import interp1d
+
 from tkinter import Tk
 from tkinter.filedialog import askopenfilename
-import peakutils
+
 import scipy
 from scipy.ndimage import gaussian_filter
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
@@ -259,6 +259,8 @@ def segmentation (image):
     img[markers == -1] = [255,0,0]
     
     plt.imshow(img)
+
+
     
 def first_peak (ascan, multi = 6):
     initial = ascan[0]*multi
